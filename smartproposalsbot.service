@@ -1,0 +1,13 @@
+[Unit]
+Description=SmartProposalBot service
+After=network-online.target
+
+[Service]
+User= :user
+Type=simple
+ExecStart= :path/SmartProposalBot.py
+Restart=always
+RestartSec=15s
+
+[Install]
+WantedBy=multi-user.target
