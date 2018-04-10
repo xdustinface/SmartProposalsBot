@@ -69,6 +69,32 @@ class Proposal(object):
 
         return s
 
+    def createdString(self):
+
+        s = self.createdDate
+
+        try:
+            s = s.split('T')
+            s = " ".join(s)
+            s += " UTC"
+        except:
+            log.error("Date format changed?")
+
+        return s
+
+    def deadlineString(self):
+
+        s = self.votingDeadline
+
+        try:
+            s = s.split('T')
+            s = " ".join(s)
+            s += " UTC"
+        except:
+            log.error("Date format changed?")
+
+        return s
+
 class SmartCashProposals(object):
 
     def __init__(self, db):
