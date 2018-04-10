@@ -172,7 +172,7 @@ class SmartProposalsBotDiscord(object):
         if result['response']:
             await self.sendMessage(message.author, result['response'])
 
-        if result['added']:
+        if result['added'] and not isinstance(message.author, discord.Member):
             return
 
         # per default assume the message gets back from where it came
