@@ -166,7 +166,7 @@ def welcome(messenger):
     message += "This will allow me to send you updates when the voting distribution for any"
     message += " of the proposals on your watchlist obtains a change.\n\n"
     message += "To get more info send me <c>help<c>\n\n"
-    message += "If you want to support my creator, its @dustinface#6318 :stuck_out_tongue:\n\n"
+    message += "If you want to support my creator, its @dustinface#6318 :v:\n\n"
     message += ":coffee: & :beer: => <b>STsDhYJZZrVFCaA5FX2AYWP27noYo3RUjD<b>"
 
     return markdown(message, messenger)

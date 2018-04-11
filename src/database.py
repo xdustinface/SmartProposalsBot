@@ -335,7 +335,7 @@ class ProposalDatabase(object):
         proposals = None
 
         with self.connection as db:
-            db.cursor.execute("SELECT * FROM proposals")
+            db.cursor.execute("SELECT * FROM proposals order by proposalId")
             proposals = db.cursor.fetchall()
 
         return proposals
@@ -346,7 +346,7 @@ class ProposalDatabase(object):
 
         with self.connection as db:
 
-            db.cursor.execute("SELECT * FROM proposals where proposalId=?",[proposalId])
+            db.cursor.execute("SELECT * FROM proposals where proposalId=? order by proposalId",[proposalId])
             proposal = db.cursor.fetchone()
 
         return proposal
