@@ -39,6 +39,13 @@ class Proposal(object):
         for arg in data:
             setattr(self, arg, data[arg])
 
+    def __eq__(self, other):
+        return self.hash == other.hash and\
+                self.index == other.index
+
+    def __lt__(self, other):
+        return self.proposalId < other.proposalId
+
     @classmethod
     def fromRaw(cls, raw):
 
@@ -265,7 +272,7 @@ class SmartCashProposals(object):
             if  'OPEN' in proposal.status.upper():
                 open.append(proposal)
 
-        return open
+        return sorted(open)
 
     def getProposal(self, proposalId):
 
@@ -282,12 +289,12 @@ class SmartCashProposals(object):
             if id in self.proposals:
                 proposals.append(self.proposals[id])
 
-        return proposals
+        return sorted(proposals)
 
     def getLatestProposals(self):
 
         if len(self.proposals):
-            return list(self.proposals.values())[-1]
+            return sorted(list(self.proposals.values()))[-1]
 
         return None
 
@@ -299,6 +306,8 @@ class SmartCashProposals(object):
                 'YES' in proposal.currentStatus.upper():
                 passing.append(proposal)
 
+        passing.sort()
+
         return passing
 
     def getFailingProposals(self):
@@ -308,5 +317,7 @@ class SmartCashProposals(object):
             if  'OPEN' in proposal.status.upper() and\
                 'NO' in proposal.currentStatus.upper():
                 failing.append(proposal)
+
+        failing.sort()
 
         return failing
