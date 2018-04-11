@@ -45,7 +45,7 @@ class BotDatabase(object):
 
                 logger.debug("addUser: New user {} {}".format(userId,userName))
 
-                db.cursor.execute("INSERT INTO users( id, name, subscription ) values( ?, ?, 0 )", ( userId, userName ))
+                db.cursor.execute("INSERT INTO users( id, name, subscription ) values( ?, ?, 1 )", ( userId, userName ))
 
                 user = db.cursor.lastrowid
         except:
