@@ -69,6 +69,28 @@ class Proposal(object):
 
         return s
 
+    def percentYesString(self):
+
+        if self.percentYes == 'NaN':
+            return '0.0'
+        else:
+            return str(round(self.percentYes,2))
+
+    def percentNoString(self):
+
+        if self.percentNo == 'NaN':
+            return '0.0'
+        else:
+            return str(round(self.percentNo,2))
+
+    def percentAbstainString(self):
+
+        if self.percentAbstain == 'NaN':
+            return '0.0'
+        else:
+            return str(round(self.percentAbstain,2))
+
+
     def createdString(self):
 
         s = self.createdDate

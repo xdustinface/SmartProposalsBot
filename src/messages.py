@@ -122,9 +122,9 @@ def proposalShort(messenger, proposal):
     message += "<b>Requested [USD]<b> {:,}\n".format(round(proposal.amountUSD,1))
     message += "<b>Requested [SMART]<b> {:,} SMART\n\n".format(round(proposal.amountSmart,1))
     message += "<b>Remaining time<b> {}\n".format(proposal.remainingString())
-    message += "<b>YES<b> {}%\n".format(round(proposal.percentYes,2))
-    message += "<b>NO<b> {}%\n".format(round(proposal.percentNo),2)
-    message += "<b>ABSTAIN<b> {}%\n".format(round(proposal.percentAbstain,2))
+    message += "<b>YES<b> {}%\n".format(proposal.percentYesString())
+    message += "<b>NO<b> {}%\n".format(proposal.percentNoString())
+    message += "<b>ABSTAIN<b> {}%\n".format(proposal.percentAbstainString())
     message += "<b>Voting power<b> {:,} SMART\n".format(int(power))
     message += link(messenger, "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url),'Open the proposal!')
     message += "\n\n"
@@ -146,9 +146,9 @@ def proposalDetail(messenger, proposal):
     message += "<b>Remaining time<b> {}\n\n".format(proposal.remainingString())
     message += "<i>{}<i>\n\n".format(removeMarkdown(proposal.summary))
     message += "<b>Current state percental<b>\n"
-    message += "<b>YES<b> {}%\n".format(round(proposal.percentYes,2))
-    message += "<b>NO<b> {}%\n".format(round(proposal.percentNo),2)
-    message += "<b>ABSTAIN<b> {}%\n\n".format(round(proposal.percentAbstain,2))
+    message += "<b>YES<b> {}%\n".format(proposal.percentYesString())
+    message += "<b>NO<b> {}%\n".format(proposal.percentNoString())
+    message += "<b>ABSTAIN<b> {}%\n\n".format(proposal.percentAbstainString())
     message += "<b>Current voting power<b>\n"
     message += "<b>YES<b> {:,} SMART\n".format(round(proposal.voteYes,1))
     message += "<b>NO<b> {:,} SMART\n".format(round(proposal.voteNo,1))
