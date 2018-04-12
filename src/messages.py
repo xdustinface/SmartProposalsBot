@@ -166,7 +166,7 @@ def welcome(messenger):
     message += "This will allow me to send you updates when the voting distribution for any"
     message += " of the proposals on your watchlist obtains a change.\n\n"
     message += "You are on the subscription list! This means you will receive"
-    messagge+= " notifications about new/ending proposals from now on. If you dont"
+    message += " notifications about new/ending proposals from now on. If you dont"
     message += " like it send me <cb>unsubscribe<ca> to disable it.\n\n"
     message += "To get more info about all my available commands send me <c>help<c>\n\n"
     message += "If you want to support my creator, its @dustinface#6318 :v:\n\n"
