@@ -56,6 +56,10 @@ def crossMessengerSplit(obj):
         result['user'] = obj.message.from_user.id
         result['name'] = obj.message.from_user.name
         result['chat'] = obj.message.chat_id
+    elif isinstance(obj, discord.Member) or \
+         isinstance(obj, discord.User):
+        result['user'] = obj.id
+        result['name'] = obj.name
     elif isinstance(obj.author, discord.Member) or \
          isinstance(obj.author, discord.User):
         #Discord public/private message

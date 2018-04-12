@@ -138,6 +138,16 @@ class SmartProposalsBotDiscord(object):
 
             for mention in message.mentions:
                 if not mention == self.client.user:
+
+                    # Check if the user is already in the databse
+                    result = commandhandler.checkUser(self, mention)
+
+                    if result['response']:
+                        await self.sendMessage(mention, result['response'])
+
+                    if result['added']:
+                        continue
+
                     await self.sendMessage(mention, messages.help(self.messenger))
 
             return

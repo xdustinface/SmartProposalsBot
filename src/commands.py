@@ -26,7 +26,6 @@ def checkUser(bot, message):
     userInfo = util.crossMessengerSplit(message)
     userId = userInfo['user'] if 'user' in userInfo else None
     userName = userInfo['name'] if 'name' in userInfo else "Unknown"
-    public = userInfo['public']
 
     if not bot.database.getUser(userId) and bot.database.addUser(userId, userName):
         logger.info("checkUser - new user {}".format(userName))
