@@ -148,14 +148,13 @@ class Proposal(object):
         return stateAllocated in self.status.lower()
 
     def open(self):
-        return self.status.lower() == stateOpen
+        return stateOpen in self.status.lower()
 
     def passing(self):
-        log.info(self)
-        return self.status.lower() == stateOpen and self.currentStatus.lower() == 'yes'
+        return stateOpen in self.status.lower() and 'yes' in self.currentStatus.lower()
 
     def failing(self):
-        return self.status.lower() == stateOpen and self.currentStatus.lower() == 'no'
+        return stateOpen in self.status.lower() and 'no' in self.currentStatus.lower()
 
 class SmartCashProposals(object):
 
@@ -311,10 +310,16 @@ class SmartCashProposals(object):
                 else:
                     openProposals[proposal.proposalId] = proposal
 
-            for id, proposal in self.proposals.items():
+            for id in self.proposals:
 
-                if proposal.status.lower() == stateOpen and not id in openProposals:
+                proposal = self.proposals[id]
+
+                if not id in openProposals:
                     log.info("Proposal ended!")
+
+                    if not proposal.open():
+                        log.info("Ended but was not open?!")
+                        continue
 
                     try:
                         detailed = self.loadProposalDetail(id)
@@ -327,9 +332,12 @@ class SmartCashProposals(object):
 
                         if self.proposalEndedCB:
                             self.proposalEndedCB(detailed)
+
+                        self.db.updateProposal(detailed)
+
                 else:
 
-                    dbProposal = self.db.getProposal(proposal.proposalId)
+                    dbProposal = self.db.getProposal(id)
 
                     if not dbProposal:
                         log.info("Add {}".format(proposal.title))
@@ -339,7 +347,8 @@ class SmartCashProposals(object):
                         if self.proposalPublishedCB:
                             self.proposalPublishedCB(proposal)
 
-                    elif proposal.open():
+                    else:
+
                         # Compare metrics!
                         log.info("Compare {}".format(proposal.title))
 
@@ -363,6 +372,7 @@ class SmartCashProposals(object):
                             if self.proposalUpdatedCB:
                                 self.db.updateProposal(proposal)
                                 self.proposalUpdatedCB(updated, proposal)
+
 
     def getOpenProposals(self):
         return sorted(filter(lambda x: x.open(), self.proposals.values()))
