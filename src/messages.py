@@ -160,8 +160,8 @@ def proposalDetail(messenger, proposal):
     return markdown(message,messenger)
 
 def welcome(messenger):
-
-    message =  "You can use me to receive notifications about new/ended proposals or "
+    message =  ":boom: <u><b>Welcome<b><u> :boom:\n\n"
+    message += "You can use me to receive notifications about new/ended proposals or "
     message += "add the proposals you like and want to follow to your watchlist here. "
     message += "This will allow me to send you updates when the voting distribution for any"
     message += " of the proposals on your watchlist obtains a change.\n\n"
@@ -170,7 +170,9 @@ def welcome(messenger):
     message += " like it send me <cb>unsubscribe<ca> to disable it.\n\n"
     message += "To get more info about all my available commands send me <c>help<c>\n\n"
     message += "If you want to support my creator, its @dustinface#6318 :v:\n\n"
-    message += ":coffee: & :beer: => <b>STsDhYJZZrVFCaA5FX2AYWP27noYo3RUjD<b>"
+    message += ":coffee: & :beer: => <b>STsDhYJZZrVFCaA5FX2AYWP27noYo3RUjD<b>\n\n\n"
+    message += "<u>You may also want to check this out<u>\n\n" + link(messenger,"https://steemit.com/smartcash/@dustinface/smarthive-voting-automation-script")
+    message += "\n\nIt will allow you to vote with all addresses of your wallet in one shot.\n\n"
 
     return markdown(message, messenger)
 
@@ -191,6 +193,24 @@ def publishedProposalNotification(messenger, proposal):
     message += "\n\n"
 
     message += "<u><b>Beee SMART and VOTE!<b><u>\n\n"
+
+    return markdown(message, messenger)
+
+def endedProposalNotification(messenger, proposal):
+
+    message = "<u><b>Proposal ended!<b><u>\n\n"
+
+    message += "<u><b>#{} - {}<b><u>\n\n".format(proposal.proposalId, removeMarkdown(proposal.title))
+
+    if proposal.allocated():
+        result = "🎉 Allocated 🎉"
+    else:
+        result = proposal.status
+
+    message += "<b>Result<b> {}\n\n".format(result)
+
+    message += link(messenger, "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url),'Open the proposal!')
+    message += "\n\n"
 
     return markdown(message, messenger)
 

@@ -240,8 +240,10 @@ class ProposalDatabase(object):
                         percentNo,\
                         percentAbstain,\
                         currentStatus,\
-                        categoryTitle) \
-                        values( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )"
+                        categoryTitle,\
+                        approval,\
+                        reminder) \
+                        values( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )"
 
                 db.cursor.execute(query, (
                                   proposal.proposalId,
@@ -263,7 +265,9 @@ class ProposalDatabase(object):
                                   proposal.percentNo,
                                   proposal.percentAbstain,
                                   proposal.currentStatus,
-                                  proposal.categoryTitle
+                                  proposal.categoryTitle,
+                                  proposal.approval,
+                                  proposal.reminder
                                   ))
 
                 return db.cursor.lastrowid
@@ -297,7 +301,9 @@ class ProposalDatabase(object):
                         percentNo=?,\
                         percentAbstain=?,\
                         currentStatus=?,\
-                        categoryTitle=? \
+                        categoryTitle=?, \
+                        approval=?,\
+                        reminder=? \
                         WHERE proposalId=?"
 
                 db.cursor.execute(query, (
@@ -320,6 +326,8 @@ class ProposalDatabase(object):
                                   proposal.percentAbstain,
                                   proposal.currentStatus,
                                   proposal.categoryTitle,
+                                  proposal.approval,
+                                  proposal.reminder,
                                   proposal.proposalId
                                   ))
 
@@ -375,7 +383,9 @@ class ProposalDatabase(object):
             `percentNo` REAL,\
             `percentAbstain` REAL,\
             `currentStatus` TEXT,\
-            `categoryTitle` TEXT\
+            `categoryTitle` TEXT,\
+            `reminder` INTEGER,\
+            `approval` INTEGER\
         );\
         COMMIT;'
 

@@ -1,3 +1,4 @@
+
 import os, stat, sys
 import re
 import subprocess
@@ -13,7 +14,27 @@ import uuid
 import datetime, calendar
 from src import util
 
+stateOpen = 'open'
+stateAllocated = 'allocated'
+stateCompleted = 'completed'
+stateDeactivated = 'deactivated'
+
+validProposalStates = [stateOpen, stateAllocated, stateCompleted, stateDeactivated]
+
+errorInvalidState = "Invalid proposal state - {}"
+
 log = logging.getLogger("voting")
+
+def proposalDateToString(dateString):
+
+    try:
+        dateParts = dateString.split('T')
+        dateString = " ".join(dateParts)
+        dateString += " UTC"
+    except:
+        log.error("Date format changed?")
+
+    return dateString
 
 class ProposalException(Exception):
 
@@ -32,12 +53,18 @@ class JsonFormatException(ProposalException):
     def __init__(self, message):
         super(JsonFormatException, self).__init__(1,message)
 
+class LoadException(ProposalException):
+    def __init__(self, message):
+        super(LoadException, self).__init__(2,message)
 
 class Proposal(object):
     def __init__(self, data):
 
         for arg in data:
             setattr(self, arg, data[arg])
+
+    def __str__(self):
+        return "proposalId {}, status {}, currentStatus {}".format(self.proposalId,self.status, self.currentStatus)
 
     def __eq__(self, other):
         return self.hash == other.hash and\
@@ -57,9 +84,15 @@ class Proposal(object):
                     'voteYes','voteNo','voteAbstain','percentYes',
                     'percentNo','percentAbstain','currentStatus','categoryTitle']
 
+        optional = ['reminder', 'approval']
+
         for key in required:
             if not key in rawDict:
-                raise JsonFormatException( "{} not found - {}".format(key) )
+                raise JsonFormatException( "{} not found".format(key) )
+
+        for key in optional:
+            if not key in rawDict:
+                rawDict[key] = 0
 
         return cls(rawDict)
 
@@ -97,32 +130,32 @@ class Proposal(object):
         else:
             return str(round(self.percentAbstain,2))
 
-
     def createdString(self):
-
-        s = self.createdDate
-
-        try:
-            s = s.split('T')
-            s = " ".join(s)
-            s += " UTC"
-        except:
-            log.error("Date format changed?")
-
-        return s
+        return proposalDateToString(self.createdDate)
 
     def deadlineString(self):
+        return proposalDateToString(self.votingDeadline)
 
-        s = self.votingDeadline
+    def valid(self):
 
-        try:
-            s = s.split('T')
-            s = " ".join(s)
-            s += " UTC"
-        except:
-            log.error("Date format changed?")
+        for state in validProposalStates:
+            if state in self.status.lower():
+                return True
 
-        return s
+        return False
+
+    def allocated(self):
+        return stateAllocated in self.status.lower()
+
+    def open(self):
+        return self.status.lower() == stateOpen
+
+    def passing(self):
+        log.info(self)
+        return self.status.lower() == stateOpen and self.currentStatus.lower() == 'yes'
+
+    def failing(self):
+        return self.status.lower() == stateOpen and self.currentStatus.lower() == 'no'
 
 class SmartCashProposals(object):
 
@@ -136,6 +169,7 @@ class SmartCashProposals(object):
         self.url = "https://vote.smartcash.cc/api/"
         self.apiVersion = "v1"
         self.openEndpoint = "/voteproposals"
+        self.detailEndpoint = "/voteproposals/detail/"
 
         self.proposalPublishedCB = None
         self.proposalUpdatedCB = None
@@ -160,7 +194,9 @@ class SmartCashProposals(object):
                 continue
             else:
 
-                if not proposal.proposalId in self.proposals:
+                if not proposal.valid():
+                    self.errorCB(errorInvalidState.format(proposal.status))
+                else:
                     self.proposals[proposal.proposalId] = proposal
 
         self.running = True
@@ -173,6 +209,57 @@ class SmartCashProposals(object):
 
         self.update()
         self.startTimer()
+
+    def loadProposalDetail(self, proposalId):
+        log.info("loadProposalDetail")
+
+        try:
+            response = requests.get(self.url + self.apiVersion + self.detailEndpoint + str(proposalId),
+                         timeout=20)
+        except Exception as e:
+            raise LoadException("Request exception {}".format(str(e)))
+        else:
+
+            if response.status_code != 200:
+                log.error("Request failed: {}".format(response.status_code))
+                raise LoadException("Invalid status code {}".format(response.status_code))
+
+            try:
+                detail = json.loads(response.text)
+            except Exception as e:
+                raise JsonFormatException("Load proposal detail {}".format(str(e)))
+            else:
+
+                if not 'status' in detail:
+                    raise LoadException("Invalid response: status missing!")
+
+                if not 'OK' in detail['status']:
+                    raise LoadException("Invalid response: status not OK => {}".format(detail['status']))
+
+                if not 'result' in detail:
+                    raise LoadException("Invalid response: result missing!")
+
+                raw = None
+
+                # Workaround because there is a typo in the json result
+                # Check both in case it gets fixed.
+                if 'proposal' in detail['result']:
+                    raw = detail['result']['proposal']
+                elif 'propposal' in detail['result']:
+                    raw = detail['result']['propposal']
+                else:
+                    raise LoadException("Invalid response: proposal missing!")
+
+                try:
+                    proposal = Proposal.fromRaw(raw)
+                except Exception as e:
+                    raise LoadException("Parse proposal detail {}".format(str(e)))
+                else:
+
+                    if proposal.proposalId != proposalId:
+                        raise LoadException("proposalId missmatch {} - {}".format(proposal.proposalId, proposalId))
+
+                    return proposal
 
     def update(self):
 
@@ -204,15 +291,17 @@ class SmartCashProposals(object):
                 log.error("Invalid response: result missing!")
                 return
 
-            openProposals = openList['result']
+            openProposalsJson = openList['result']
 
-            if not len(openProposals):
+            if not len(openProposalsJson):
                 log.info("Currently no proposal open for voting!")
                 return
 
-            log.info("{} open proposals found".format(len(openProposals)))
+            log.info("{} open proposals found".format(len(openProposalsJson)))
 
-            for raw in openProposals:
+            openProposals = {}
+
+            for raw in openProposalsJson:
 
                 try:
                     proposal = Proposal.fromRaw(raw)
@@ -220,59 +309,63 @@ class SmartCashProposals(object):
                     log.error("Could not create proposal from raw data", exc_info = e)
                     continue
                 else:
-                    self.proposals[proposal.proposalId] = proposal
+                    openProposals[proposal.proposalId] = proposal
 
-            self.sync()
+            for id, proposal in self.proposals.items():
 
-    def sync(self):
-        log.info("sync")
+                if proposal.status.lower() == stateOpen and not id in openProposals:
+                    log.info("Proposal ended!")
 
-        for proposal in self.proposals.values():
+                    try:
+                        detailed = self.loadProposalDetail(id)
+                    except Exception as e:
+                        log.error("Could not load proposal {}".format(proposal.proposalId),exc_info=e)
+                        self.errorCB(str(e))
+                    else:
 
-            dbProposal = self.db.getProposal(proposal.proposalId)
+                        self.proposals[id] = detailed
 
-            if not dbProposal:
-                log.info("Add {}".format(proposal.title))
-                if not self.db.addProposal(proposal):
-                    log.warning("Could not add {}".format(proposal.title))
+                        if self.proposalEndedCB:
+                            self.proposalEndedCB(detailed)
+                else:
 
-                if self.proposalPublishedCB:
-                    self.proposalPublishedCB(proposal)
+                    dbProposal = self.db.getProposal(proposal.proposalId)
 
-            else:
-                # Compare metrics!
-                log.info("Compare {}".format(proposal.title))
+                    if not dbProposal:
+                        log.info("Add {}".format(proposal.title))
+                        if not self.db.addProposal(proposal):
+                            log.warning("Could not add {}".format(proposal.title))
 
-                updated = { 'voteYes' : None,
-                            'voteNo' : None,
-                            'voteAbstain' : None,
-                            'status' : None,
-                            'currentStatus' : None
-                          }
+                        if self.proposalPublishedCB:
+                            self.proposalPublishedCB(proposal)
 
-                compare = Proposal.fromRaw(dbProposal)
+                    elif proposal.open():
+                        # Compare metrics!
+                        log.info("Compare {}".format(proposal.title))
 
-                for key in updated:
-                    if compare.__getattribute__(key) != proposal.__getattribute__(key):
-                        updated[key] = {'before':compare.__getattribute__(key), 'now': proposal.__getattribute__(key)}
+                        updated = {
+                                    'voteYes' : None,
+                                    'voteNo' : None,
+                                    'voteAbstain' : None,
+                                    'status' : None,
+                                    'currentStatus' : None
+                                  }
 
-                if sum(map(lambda x: x != None,list(updated.values()))):
-                    log.info("Proposal updated!")
+                        compare = Proposal.fromRaw(dbProposal)
 
-                    if self.proposalUpdatedCB:
-                        self.db.updateProposal(proposal)
-                        self.proposalUpdatedCB(updated, proposal)
+                        for key in updated:
+                            if compare.__getattribute__(key) != proposal.__getattribute__(key):
+                                updated[key] = {'before':compare.__getattribute__(key), 'now': proposal.__getattribute__(key)}
 
+                        if sum(map(lambda x: x != None,list(updated.values()))):
+                            log.info("Proposal updated!")
+
+                            if self.proposalUpdatedCB:
+                                self.db.updateProposal(proposal)
+                                self.proposalUpdatedCB(updated, proposal)
 
     def getOpenProposals(self):
-
-        open = []
-
-        for proposal in self.proposals.values():
-            if  'OPEN' in proposal.status.upper():
-                open.append(proposal)
-
-        return sorted(open)
+        return sorted(filter(lambda x: x.open(), self.proposals.values()))
 
     def getProposal(self, proposalId):
 
@@ -299,25 +392,7 @@ class SmartCashProposals(object):
         return None
 
     def getPassingProposals(self):
-        passing = []
-
-        for proposal in self.proposals.values():
-            if  'OPEN' in proposal.status.upper() and\
-                'YES' in proposal.currentStatus.upper():
-                passing.append(proposal)
-
-        passing.sort()
-
-        return passing
+        return sorted(filter(lambda x: x.passing(),self.proposals.values()))
 
     def getFailingProposals(self):
-        failing = []
-
-        for proposal in self.proposals.values():
-            if  'OPEN' in proposal.status.upper() and\
-                'NO' in proposal.currentStatus.upper():
-                failing.append(proposal)
-
-        failing.sort()
-
-        return failing
+        return sorted(filter(lambda x: x.failing(),self.proposals.values()))

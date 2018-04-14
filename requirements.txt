@@ -3,3 +3,4 @@ requests
 websocket-client
 fuzzywuzzy
 fuzzywuzzy[speedup]
+python-twitter

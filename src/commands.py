@@ -13,7 +13,7 @@ import discord
 logger = logging.getLogger("commands")
 
 ######
-# Return the given proposals as formated string
+# Return the welcome message and add the user if its not already added
 #
 #
 # Gets only called by any command handler
@@ -33,8 +33,7 @@ def checkUser(bot, message):
         result['added'] = True
 
         if bot.messenger == 'discord':
-            result['response'] = messages.markdown(":boom: <u><b>Welcome<b><u> :boom:\n\n",bot.messenger)
-            result['response'] += messages.welcome(bot.messenger)
+            result['response'] = messages.welcome(bot.messenger)
 
     return result
 
@@ -140,9 +139,9 @@ def detail(bot,args):
 def passing(bot):
     logger.info("passing")
 
-    open = bot.proposals.getPassingProposals()
+    proposals = bot.proposals.getPassingProposals()
 
-    return proposalList(bot, open, "Passing proposals", "Currently no proposal ready to vote!")
+    return proposalList(bot, proposals, "Passing proposals", "Currently no proposal ready to vote!")
 
 ######
 # Command handler for printing the open proposals
@@ -154,10 +153,9 @@ def passing(bot):
 def failing(bot):
     logger.info("failing")
 
-    open = bot.proposals.getFailingProposals()
+    proposals = bot.proposals.getFailingProposals()
 
-    return proposalList(bot, open, "Failing proposals", "Currently no proposal ready to vote!")
-
+    return proposalList(bot, proposals, "Failing proposals", "Currently no proposal ready to vote!")
 
 ######
 # Return the given proposals as formated string
@@ -354,11 +352,10 @@ def stats(bot):
 def handlePublishedProposal(bot, proposal):
 
     # Create notification response messages!
-
-    responses = {}
+    responses = {'message':messages.publishedProposalNotification(bot.messenger, proposal), 'userIds': []}
 
     for user in bot.database.getSubscriptions():
-        responses[user['id']] = messages.publishedProposalNotification(bot.messenger, proposal)
+        responses['userIds'].append(user['id'])
 
     return responses
 
@@ -401,6 +398,15 @@ def handleUpdatedProposal(bot, updated, proposal):
 
     return responses
 
+def handleEndedProposal(bot, proposal):
+
+    # Create notification response messages!
+    responses = {'message':messages.endedProposalNotification(bot.messenger, proposal), 'userIds': []}
+
+    for user in bot.database.getSubscriptions():
+        responses['userIds'].append(user['id'])
+
+    return responses
 
 ######
 # Command handler for printing the unknonw text

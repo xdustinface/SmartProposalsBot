@@ -9,7 +9,7 @@
 app =
 
 ## Api Key for the bot
-token = <bot_token>
+token =
 
 [general]
 
@@ -29,7 +29,11 @@ environment=
 ###############
 loglevel = 2
 
-# Admins userid for the selected messenger
-admin =
+[optional]
+
+# Channels which should get notified about proposals (comma separated)
+notification_channels =
+# Admins userids for the selected messenger (comma separated)
+admins =
 # Admin password to run admin commands
 password =

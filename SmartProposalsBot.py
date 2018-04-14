@@ -9,7 +9,7 @@ from src import database
 from src import telegram
 from src import discord
 from src import util
-
+from src.socialmedia import Tweeter
 from src.votingportal import SmartCashProposals
 
 __version__ = "1.0"
@@ -35,8 +35,6 @@ def main(argv):
     checkConfig(config, 'bot','token')
     checkConfig(config, 'bot','app')
     checkConfig(config, 'general','loglevel')
-    checkConfig(config, 'general','admin')
-    checkConfig(config, 'general','password')
     checkConfig(config, 'general','environment')
 
     if config.get('bot', 'app') != 'telegram' and\
@@ -49,13 +47,13 @@ def main(argv):
     if level < 0 or level > 4:
         sys.exit("Invalid log level.\n 1 - debug\n 2 - info\n 3 - warning\n 4 - error")
 
-    # Enable logging
-
     environment = int(config.get('general','environment'))
 
     if environment != 1 and\
        environment != 2:
        sys.exit("Invalid environment.\n 1 - development\n 2 - production\n")
+
+    # Enable logging
 
     if environment == 1: # development
         logging.basicConfig(format='%(asctime)s - scproposals_{} - %(name)s - %(levelname)s - %(message)s'.format(config.get('bot', 'app')),
@@ -64,14 +62,47 @@ def main(argv):
         logging.basicConfig(format='scproposals_{} %(name)s - %(levelname)s - %(message)s'.format(config.get('bot', 'app')),
                         level=level*10)
 
+    notifyChannel = []
+    admins = []
+    password = None
+
+    try:
+        notifyChannel = config.get('optional', 'notification_channels').split(',')
+    except:
+        pass
+
+    try:
+        admins = config.get('optional','admins').split(',')
+    except:
+        pass
+
+    try:
+        password = config.get('optional','password')
+    except:
+        pass
+
+    consumerKey = None
+    consumerSecret = None
+    accessToken = None
+    accessTokenSecret = None
+
+    tweeter = None
+
+    try:
+        consumerKey = config.get('twitter','consumer_key')
+        consumerSecret = config.get('twitter','consumer_secret')
+        accessToken = config.get('twitter','access_token_key')
+        accessTokenSecret = config.get('twitter','access_token_secret')
+
+        tweeter = Tweeter(consumerKey, consumerSecret, accessToken, accessTokenSecret)
+    except:
+        pass
+
     # Load the user database
     botdb = database.BotDatabase(directory + '/bot.db')
 
     # Load the proposals database
     proposaldb = database.ProposalDatabase(directory + '/proposals.db')
-
-    admin = config.get('general','admin')
-    password = config.get('general','password')
 
     # Create the proposal list manager
     proposals = SmartCashProposals(proposaldb)
@@ -79,9 +110,9 @@ def main(argv):
     bot = None
 
     if config.get('bot', 'app') == 'telegram':
-        bot = telegram.SmartProposalsBotTelegram(config.get('bot','token'), admin, password, botdb, proposals)
+        bot = telegram.SmartProposalsBotTelegram(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel)
     elif config.get('bot', 'app') == 'discord':
-        bot = discord.SmartProposalsBotDiscord(config.get('bot','token'), admin, password, botdb, proposals)
+        bot = discord.SmartProposalsBotDiscord(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel, tweeter)
     else:
         sys.exit("You need to set 'telegram' or 'discord' as 'app' in the configfile.")
 
