@@ -241,9 +241,9 @@ class SmartProposalsBotDiscord(object):
                 logger.info("Admin only, public")
                 return
 
-            def tryAdmin(message):
+            def tryAdmin(message, args):
 
-                if int(message.author.id) in self.admins:
+                if message.author.id in self.admins:
 
                     if self.password:
                         if len(args) >= 1 and args[0] == self.password:
@@ -254,7 +254,7 @@ class SmartProposalsBotDiscord(object):
                 return False
 
             # Admin command got fired from an unauthorized user
-            if tryAdmin(message):
+            if tryAdmin(message, args):
                 receiver = message.author
             else:
                 logger.info("Admin only, other")
