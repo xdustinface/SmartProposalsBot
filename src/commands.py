@@ -359,6 +359,16 @@ def handlePublishedProposal(bot, proposal):
 
     return responses
 
+def handleReminderProposal(bot, proposal):
+
+    # Create notification response messages!
+    responses = {'message':messages.reminderProposalNotification(bot.messenger, proposal), 'userIds': []}
+
+    for user in bot.database.getSubscriptions():
+        responses['userIds'].append(user['id'])
+
+    return responses
+
 def handleUpdatedProposal(bot, updated, proposal):
 
     # Create notification response messages!

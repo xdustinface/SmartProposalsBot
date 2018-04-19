@@ -9,7 +9,7 @@ from src import database
 from src import telegram
 from src import discord
 from src import util
-from src.socialmedia import Tweeter
+from src.socialmedia import Tweeter, Reddit
 from src.votingportal import SmartCashProposals
 
 __version__ = "1.0"
@@ -81,11 +81,7 @@ def main(argv):
     except:
         pass
 
-    consumerKey = None
-    consumerSecret = None
-    accessToken = None
-    accessTokenSecret = None
-
+    # Fallback is None
     tweeter = None
 
     try:
@@ -95,6 +91,23 @@ def main(argv):
         accessTokenSecret = config.get('twitter','access_token_secret')
 
         tweeter = Tweeter(consumerKey, consumerSecret, accessToken, accessTokenSecret)
+
+    except:
+        pass
+
+    # Fallback is None
+    reddit = None
+
+    try:
+
+        clientId = config.get('reddit','client_id')
+        clientSecret = config.get('reddit','client_secret')
+        password = config.get('reddit','password')
+        userAgent = config.get('reddit','user_agent')
+        userName = config.get('reddit','user_name')
+
+        reddit = Reddit(clientId, clientSecret, password, userAgent, userName)
+
     except:
         pass
 
@@ -112,7 +125,7 @@ def main(argv):
     if config.get('bot', 'app') == 'telegram':
         bot = telegram.SmartProposalsBotTelegram(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel)
     elif config.get('bot', 'app') == 'discord':
-        bot = discord.SmartProposalsBotDiscord(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel, tweeter)
+        bot = discord.SmartProposalsBotDiscord(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel, tweeter, reddit)
     else:
         sys.exit("You need to set 'telegram' or 'discord' as 'app' in the configfile.")
 

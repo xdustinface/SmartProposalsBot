@@ -18,7 +18,7 @@ logger = logging.getLogger("bot")
 
 class SmartProposalsBotDiscord(object):
 
-    def __init__(self, botToken, admins, password, db, proposals, notifyChannelIds, tweeter):
+    def __init__(self, botToken, admins, password, db, proposals, notifyChannelIds, tweeter, reddit):
 
         # Currently only used for markdown
         self.messenger = "discord"
@@ -34,7 +34,9 @@ class SmartProposalsBotDiscord(object):
         self.proposals = proposals
         self.proposals.proposalPublishedCB = self.proposalPublishedCB
         self.proposals.proposalUpdatedCB = self.proposalUpdatedCB
+        self.proposals.proposalReminderCB = self.proposalReminderCB
         self.proposals.proposalEndedCB = self.proposalEndedCB
+        self.proposals.errorCB = self.adminCB
         # Store the admin password
         self.password = password
         # Store the admin user
@@ -43,6 +45,8 @@ class SmartProposalsBotDiscord(object):
         self.notifyChannelIds = notifyChannelIds
         # Twitter manager
         self.tweeter = tweeter
+        # Reddit manager
+        self.reddit = reddit
 
     def runClient(self):
 
@@ -58,8 +62,11 @@ class SmartProposalsBotDiscord(object):
                 return
             except Exception as e:
                 logger.error("Bot crashed?! ", e)
+                self.adminCB("**Bot crashed** {}".format(str(e)))
 
-            time.sleep(600)
+            asyncio.run_coroutine_threadsafe(self.client.close(), loop=loop)
+
+            time.sleep(10)
 
     ######
     # Starts the bot and block until the programm gets stopped.
@@ -69,7 +76,7 @@ class SmartProposalsBotDiscord(object):
         self.runClient()
 
     def stop(self):
-
+        asyncio.run_coroutine_threadsafe(self.client.close(), loop=self.client.loop)
         self.proposals.stop()
 
     ######
@@ -109,8 +116,11 @@ class SmartProposalsBotDiscord(object):
         if not self.proposals.running:
             self.proposals.start()
 
-        # Advise the admin about the start.
-        self.adminCB("**Bot started**")
+            # Advise the admin about the start.
+            self.adminCB("**Bot started**")
+        else:
+            # Advise the admin about the start.
+            self.adminCB("**Bot reconnected**")
 
     ######
     # Discord api coroutine which gets called when a new message has been
@@ -377,36 +387,45 @@ class SmartProposalsBotDiscord(object):
 
         self.notifyChannels(message)
 
-        # if self.tweeter:
+        if self.tweeter:
+
+            tweet =  "💥 New Proposal 💥\n\n"
+            tweet += proposal.title + "\n\n"
+            tweet += "\n\n"
+            tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
+
+            self.tweeter.tweet(tweet)
+
+        # if self.reddit:
         #
-        #     tweet =  "💥 New Proposal 💥\n\n"
-        #     tweet += proposal.title + "\n\n"
-        #     tweet += "\n\n"
-        #     tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
+        #     post =  "💥 New Proposal 💥\n\n"
         #
-        #     self.tweeter.tweet(tweet)
-        #
-        # if self.tweeter:
-        #
-        #     tweet =  "❗️ Last call ❗️\n\n"
-        #     tweet += proposal.title + "\n\n"
-        #     tweet += "1 more day to vote! GO cast your votes! "
-        #
-        #     tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
-        #
-        #     self.tweeter.tweet(tweet)
-        #
-        # if self.tweeter:
-        #     if 'YES' in proposal.currentStatus.upper():
-        #         tweet =  "🎉 Approved 🎉\n\n"
-        #     else:
-        #         tweet = "Rejected 👎\n\n"
-        #
-        #     tweet += proposal.title + "\n\n"
-        #
-        #     tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
-        #
-        #     self.tweeter.tweet(tweet)
+        #     self.reddit.post('/r/smartcash',post)
+
+    def proposalReminderCB(self, proposal):
+
+            responses = commandhandler.handleReminderProposal(self, proposal)
+
+            message = responses['message']
+
+            for userId in responses['userIds']:
+
+                member = self.findMember(userId)
+
+                if member:
+                    asyncio.run_coroutine_threadsafe(self.sendMessage(member, message), loop=self.client.loop)
+
+            self.notifyChannels(message)
+
+            if self.tweeter:
+
+                tweet =  "❗️ Last call ❗️\n\n"
+                tweet += proposal.title + "\n\n"
+                tweet += "1 more day till the end! GO cast your votes! "
+
+                tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
+
+                self.tweeter.tweet(tweet)
 
     ######
     # Callback for evaluating if someone in the database has won the reward
@@ -448,13 +467,24 @@ class SmartProposalsBotDiscord(object):
 
         self.notifyChannels(message)
 
-    ######
-    # Push the message to the admin
-    #
-    # Called by: SmartCashProposals
-    #
-    ######
-    def adminCB(self, message):
+        if self.tweeter:
+
+            if proposal.allocated():
+                tweet =  "🎉 Approved 🎉\n\n"
+            else:
+                tweet = "Rejected 👎\n\n"
+
+            tweet += proposal.title + "\n\n"
+
+            tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
+
+            self.tweeter.tweet(tweet)
+
+
+    def notifyAdmins(self, message):
+
+        if not len(self.admins):
+            return
 
         for admin in self.admins:
 
@@ -463,4 +493,22 @@ class SmartProposalsBotDiscord(object):
             if member:
                 asyncio.run_coroutine_threadsafe(self.sendMessage(member, message), loop=self.client.loop)
             else:
-                logger.warning("adminCB - Could not find admin.")
+                logger.warning("notifyAdmins - Could not find admin {}".format(admin))
+
+    ######
+    # Push the message to the admin
+    #
+    # Called by: SmartNodeList
+    #
+    ######
+    def adminCB(self, message):
+
+        if not len(self.admins):
+            return
+
+        admin = self.findMember(self.admins[0])
+
+        if admin:
+            asyncio.run_coroutine_threadsafe(self.sendMessage(admin, message), loop=self.client.loop)
+        else:
+            logger.warning("adminCB - Could not find admin.")

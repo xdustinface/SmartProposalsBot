@@ -13,7 +13,7 @@ class Tweet(object):
 class Tweeter(object):
 
     def __init__(self, consumerKey, consumerSecret, accessToken, accessTokenSecret):
-        log.info("Init")
+        log.info("Tweeter: Init")
 
         self.api = twitter.Api(consumer_key=consumerKey,
                                consumer_secret=consumerSecret,
@@ -28,12 +28,13 @@ class Tweeter(object):
             send = self.api.PostUpdates
 
         status = self.api.PostUpdate(message)
-        log.info("tweet - {}".format(status))
+        log.info("Tweeter: tweet - {}".format(status))
 
 class Reddit(object):
 
     def __init__(self, clientId, clientSecret, password, userAgent, userName):
-
+        log.info("Reddit: Init")
+        
         self.api = praw.Reddit(client_id=clientId, client_secret=clientSecret,
                      password=password, user_agent=userAgent,
                      username=userName)

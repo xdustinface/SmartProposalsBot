@@ -21,8 +21,6 @@ stateDeactivated = 'deactivated'
 
 validProposalStates = [stateOpen, stateAllocated, stateCompleted, stateDeactivated]
 
-errorInvalidState = "Invalid proposal state - {}"
-
 log = logging.getLogger("voting")
 
 def proposalDateToString(dateString):
@@ -99,13 +97,10 @@ class Proposal(object):
     def remainingString(self):
 
         s = self.votingDeadline
+        seconds = self.remainingSeconds()
 
-        try:
-            d = datetime.datetime.strptime(self.votingDeadline, '%Y-%m-%dT%H:%M:%S')
-            seconds = calendar.timegm(d.timetuple()) - time.time()
+        if seconds:
             s = util.secondsToText(seconds)
-        except:
-            log.error("Date format changed?")
 
         return s
 
@@ -135,6 +130,19 @@ class Proposal(object):
 
     def deadlineString(self):
         return proposalDateToString(self.votingDeadline)
+
+    def remainingSeconds(self):
+
+        seconds = 0
+
+        try:
+            d = datetime.datetime.strptime(self.votingDeadline, '%Y-%m-%dT%H:%M:%S')
+            seconds = calendar.timegm(d.timetuple()) - time.time()
+        except:
+            log.error("Date format changed?")
+
+        return seconds
+
 
     def valid(self):
 
@@ -172,7 +180,9 @@ class SmartCashProposals(object):
 
         self.proposalPublishedCB = None
         self.proposalUpdatedCB = None
+        self.proposalReminderCB = None
         self.proposalEndedCB = None
+        self.errorCB = None
 
         self.proposals = {}
 
@@ -194,12 +204,19 @@ class SmartCashProposals(object):
             else:
 
                 if not proposal.valid():
-                    self.errorCB(errorInvalidState.format(proposal.status))
+                    self.error("Invalid proposal state - {}".format(proposal.status))
                 else:
                     self.proposals[proposal.proposalId] = proposal
 
         self.running = True
         self.startTimer(1)
+
+    def error(self, message, exception = None):
+
+        log.error(message,exc_info=exception)
+
+        if self.errorCB:
+            self.errorCB(message)
 
     def stop(self):
         log.info("stop")
@@ -264,8 +281,14 @@ class SmartCashProposals(object):
 
         log.info("update")
 
-        response = requests.get(self.url + self.apiVersion + self.openEndpoint,
+        response = None
+
+        try:
+            response = requests.get(self.url + self.apiVersion + self.openEndpoint,
                          timeout=20)
+        except Exception as e:
+            log.error("Request exception: {}".format(e))
+            return
 
         if response.status_code != 200:
             log.error("Request failed: {}".format(response.status_code))
@@ -310,6 +333,7 @@ class SmartCashProposals(object):
                 else:
                     openProposals[proposal.proposalId] = proposal
 
+
             for id in self.proposals:
 
                 proposal = self.proposals[id]
@@ -324,8 +348,7 @@ class SmartCashProposals(object):
                     try:
                         detailed = self.loadProposalDetail(id)
                     except Exception as e:
-                        log.error("Could not load proposal {}".format(proposal.proposalId),exc_info=e)
-                        self.errorCB(str(e))
+                        self.error("Could not load proposal {}".format(proposal.proposalId),e)
                     else:
 
                         self.proposals[id] = detailed
@@ -337,42 +360,58 @@ class SmartCashProposals(object):
 
                 else:
 
-                    dbProposal = self.db.getProposal(id)
+                    dbProposal = self.db.getProposal(proposal.proposalId)
 
                     if not dbProposal:
-                        log.info("Add {}".format(proposal.title))
-                        if not self.db.addProposal(proposal):
-                            log.warning("Could not add {}".format(proposal.title))
+                        log.error("Proposal not in DB. Should not happen!")
+                        continue
 
-                        if self.proposalPublishedCB:
-                            self.proposalPublishedCB(proposal)
+                    # Compare metrics!
+                    log.info("Compare {}".format(proposal.title))
 
-                    else:
+                    updated = {
+                                'voteYes' : None,
+                                'voteNo' : None,
+                                'voteAbstain' : None,
+                                'status' : None,
+                                'currentStatus' : None
+                              }
 
-                        # Compare metrics!
-                        log.info("Compare {}".format(proposal.title))
+                    compare = Proposal.fromRaw(dbProposal)
 
-                        updated = {
-                                    'voteYes' : None,
-                                    'voteNo' : None,
-                                    'voteAbstain' : None,
-                                    'status' : None,
-                                    'currentStatus' : None
-                                  }
+                    for key in updated:
+                        if compare.__getattribute__(key) != proposal.__getattribute__(key):
+                            updated[key] = {'before':compare.__getattribute__(key), 'now': proposal.__getattribute__(key)}
 
-                        compare = Proposal.fromRaw(dbProposal)
+                    if sum(map(lambda x: x != None,list(updated.values()))):
+                        log.info("Proposal updated!")
 
-                        for key in updated:
-                            if compare.__getattribute__(key) != proposal.__getattribute__(key):
-                                updated[key] = {'before':compare.__getattribute__(key), 'now': proposal.__getattribute__(key)}
+                        if self.proposalUpdatedCB:
+                            self.db.updateProposal(proposal)
+                            self.proposalUpdatedCB(updated, proposal)
 
-                        if sum(map(lambda x: x != None,list(updated.values()))):
-                            log.info("Proposal updated!")
+                    remainingSeconds = proposal.remainingSeconds()
 
-                            if self.proposalUpdatedCB:
-                                self.db.updateProposal(proposal)
-                                self.proposalUpdatedCB(updated, proposal)
+                    if not proposal.reminder and remainingSeconds and\
+                        remainingSeconds < (24 * 60 * 60): # Remind 24hours before the end
 
+                        proposal.reminder = 1
+                        self.db.updateProposal(proposal)
+
+                        if self.proposalReminderCB:
+                            self.proposalReminderCB(proposal)
+
+            for id, proposal in openProposals.items():
+                if not self.db.getProposal(id):
+                    log.info("Add {}".format(proposal.title))
+
+                    self.proposals[id] = proposal
+
+                    if not self.db.addProposal(proposal):
+                        log.warning("Could not add {}".format(proposal.title))
+
+                    if self.proposalPublishedCB:
+                        self.proposalPublishedCB(proposal)
 
     def getOpenProposals(self):
         return sorted(filter(lambda x: x.open(), self.proposals.values()))

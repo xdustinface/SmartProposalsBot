@@ -182,7 +182,7 @@ def welcome(messenger):
 
 def publishedProposalNotification(messenger, proposal):
 
-    message = "<u><b>We have a new proposal!<b><u>\n\n"
+    message = "<u><b>:boom: We have a new proposal :boom:<b><u>\n\n"
 
     message += "<u><b>#{} - {}<b><u>\n\n".format(proposal.proposalId, removeMarkdown(proposal.title))
     message += "<b>Owner<b>: {}\n".format(removeMarkdown(proposal.owner))
@@ -196,6 +196,17 @@ def publishedProposalNotification(messenger, proposal):
 
     return markdown(message, messenger)
 
+def reminderProposalNotification(messenger, proposal):
+
+    message = "<u><b>:exclamation: 24 hours left :exclamation:<b><u>\n\n"
+
+    message += "<b>#{} - {}<b>\n\n".format(proposal.proposalId, removeMarkdown(proposal.title))
+    message += "Be part of the community and cast your votes!\n\n"
+    message += link(messenger, "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url),'Open the proposal!')
+    message += "\n\n"
+
+    return markdown(message, messenger)
+
 def endedProposalNotification(messenger, proposal):
 
     message = "<u><b>Proposal ended!<b><u>\n\n"
@@ -203,7 +214,7 @@ def endedProposalNotification(messenger, proposal):
     message += "<u><b>#{} - {}<b><u>\n\n".format(proposal.proposalId, removeMarkdown(proposal.title))
 
     if proposal.allocated():
-        result = "🎉 Allocated 🎉"
+        result = ":tada: Allocated :tada:"
     else:
         result = proposal.status
 
