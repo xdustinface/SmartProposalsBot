@@ -444,20 +444,18 @@ class SmartCashProposals(object):
                         if self.proposalUpdatedCB:
                             self.proposalUpdatedCB(updateNotify, compare)
 
-                        self.db.updateProposal(compare)
-
                     remainingSeconds = compare.remainingSeconds()
 
                     if not compare.reminder and remainingSeconds and\
                         remainingSeconds < (48 * 60 * 60): # Remind 24hours before the end
 
                         compare.reminder = 1
-                        self.db.updateProposal(compare)
 
                         if self.proposalReminderCB:
                             self.proposalReminderCB(compare)
 
                     self.proposals[id] = compare
+                    self.db.updateProposal(compare)
 
 
             for id, proposal in openProposals.items():
