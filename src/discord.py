@@ -127,6 +127,10 @@ class SmartProposalsBotDiscord(object):
 
             # Advise the admin about the start.
             self.adminCB("**Bot started**")
+
+            openCount = len(self.proposals.getOpenProposals())
+            await self.client.change_presence(game=discord.Game(name='{} open Proposals'.format(openCount), type=3))
+
         else:
             # Advise the admin about the start.
             self.adminCB("**Bot reconnected**")
@@ -497,6 +501,9 @@ class SmartProposalsBotDiscord(object):
     ######
     def proposalPublishedCB(self, proposal):
 
+        openCount = len(self.proposals.getOpenProposals())
+        asyncio.run_coroutine_threadsafe(self.client.change_presence(game=discord.Game(name='{} open Proposals'.format(openCount), type=3)), loop=self.client.loop)
+
         adminResponse = messages.publishedProposalNotificationAdmin(self.messenger, proposal)
 
         self.notifyAdmins(adminResponse)
@@ -555,6 +562,9 @@ class SmartProposalsBotDiscord(object):
     #
     ######
     def proposalEndedCB(self, proposal):
+
+        openCount = len(self.proposals.getOpenProposals())
+        asyncio.run_coroutine_threadsafe(self.client.change_presence(game=discord.Game(name='{} open Proposals'.format(openCount), type=3)), loop=self.client.loop)
 
         responses = commandhandler.handleEndedProposal(self, proposal)
 
