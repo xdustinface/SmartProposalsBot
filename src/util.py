@@ -37,10 +37,16 @@ def pathIsWritable(path):
     return True if mode & stat.S_IWUSR else False
 
 def secondsToText(secs):
+
     days = secs//86400
     hours = (secs - days*86400)//3600
     minutes = (secs - days*86400 - hours*3600)//60
     seconds = secs - days*86400 - hours*3600 - minutes*60
+
+    if days:
+        seconds = -1
+        minutes = -1
+
     result =  ("{0} day{1}, ".format(days, "s" if days!=1 else "") if days else "")
     result += ("{0} hour{1}{2} ".format(hours, "s" if hours!=1 else "", "," if minutes and not days else "") if hours else "")
     result += ("{0} minute{1}{2} ".format(minutes, "s" if minutes!=1 else "", "," if seconds and not minutes else "") if minutes and not days else "")

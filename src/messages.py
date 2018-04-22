@@ -81,8 +81,8 @@ def link(messenger, link, text = ''):
 
 def help(messenger):
 
-    helpMsg =  ("This bot will allow you to:\n"
-                " <b>-<b> Subscribe for notifications about new/ending ")
+    helpMsg =  ("This bot allows you to:\n"
+                " <b>-<b> Subscribe for notifications about new/ending/ended ")
     helpMsg +=  "proposals on the voting portal: " + link(messenger,"https://vote.smartcash.cc") + "\n"
     helpMsg += (" <b>-<b> Add proposals to your watchlist and receive notifications when their "
                 "voting state changed\n"
@@ -90,18 +90,19 @@ def help(messenger):
                 " <b>-<b> Read the summary of specific proposals\n"
                 " <b>-<b> More...check out the command below!\n\n"
                 "<b>Commands (DM + Public)<b>\n\n"
-                "<cb>help<ca> - Print this help.\n"
-                "<cb>open<ca> - Print a list of all proposals that are open to vote.\n"
-                "<cb>latest<ca> - Print the last recent proposal.\n"
-                "<cb>passing<ca> - Print the open proposals with currently more YES votes.\n"
-                "<cb>failing<ca> - Print the open proposals with currently more NO votes.\n"
-                "<cb>detail<ca> <b>:id<b> - Print the summary of a specific proposal. Replace <b>:id<b> with the proposal id! Example: <cb>detail #202<ca>\n\n"
+                "<cb>help<ca> - Display this help message.\n"
+                "<cb>open<ca> - Display a list of all proposals that are open to vote.\n"
+                "<cb>latest<ca> - Display the last recent proposal.\n"
+                "<cb>ending<ca> - Display all open proposals ending in less than 3 days.\n"
+                "<cb>passing<ca> - Display all open proposals with currently more YES votes.\n"
+                "<cb>failing<ca> - Display all open proposals with currently more NO votes.\n"
+                "<cb>detail<ca> <b>:id<b> - Display the details of a specific proposal. Replace <b>:id<b> with the proposal id! Example: <cb>detail 202<ca>\n\n"
                 "<b>Command (DM only)<b>\n\n"
                 "<cb>subscribe<ca> - Subscribe notifications about new/ended proposals.\n"
                 "<cb>unsubscribe<ca> - Unsubscribe the notifications about new/ended proposals.\n"
-                "<cb>add<ca> <b>:id<b> - Add a proposal to your watchlist. Replace <b>:id<b> with the proposal id! Example: <cb>add #202<ca>\n"
-                "<cb>remove<ca> <b>:id<b> - Remove a proposal from your watchlist. Replace <b>:id<b> with the proposal id Example: <cb>remove #202<ca>\n"
-                "<cb>watchlist<ca> - Print all proposals on your watchlist\n\n")
+                "<cb>add<ca> <b>:id<b> - Add a proposal to your watchlist. Replace <b>:id<b> with the proposal id! Example: <cb>add 202<ca>\n"
+                "<cb>remove<ca> <b>:id<b> - Remove a proposal from your watchlist. Replace <b>:id<b> with the proposal id Example: <cb>remove 202<ca>\n"
+                "<cb>watchlist<ca> - Display all proposals on your watchlist\n\n")
 
     helpMsg = markdown(helpMsg, messenger)
 
@@ -121,7 +122,12 @@ def proposalShort(messenger, proposal):
     message += "<b>Owner<b> {}\n".format(removeMarkdown(proposal.owner))
     message += "<b>Requested [USD]<b> {:,}\n".format(round(proposal.amountUSD,1))
     message += "<b>Requested [SMART]<b> {:,} SMART\n\n".format(round(proposal.amountSmart,1))
-    message += "<b>Remaining time<b> {}\n".format(proposal.remainingString())
+
+    if proposal.open():
+        message += "<b>Remaining time<b> {}\n".format(proposal.remainingString())
+    else:
+        message += "<b>Result<b> {}\n".format(proposal.status)
+
     message += "<b>YES<b> {}%\n".format(proposal.percentYesString())
     message += "<b>NO<b> {}%\n".format(proposal.percentNoString())
     message += "<b>ABSTAIN<b> {}%\n".format(proposal.percentAbstainString())
@@ -142,8 +148,14 @@ def proposalDetail(messenger, proposal):
     message += "<b>Requested [USD]<b> {:,}\n".format(round(proposal.amountUSD,1))
     message += "<b>Requested [SMART]<b> {:,}\n\n".format(round(proposal.amountSmart,1))
     message += "<b>Created at<b> {}\n".format(proposal.createdString())
-    message += "<b>Voting ends at<b> {}\n".format(proposal.deadlineString())
-    message += "<b>Remaining time<b> {}\n\n".format(proposal.remainingString())
+
+    if proposal.open():
+        message += "<b>Voting ends at<b> {}\n".format(proposal.deadlineString())
+        message += "<b>Remaining time<b> {}\n\n".format(proposal.remainingString())
+    else:
+        message += "<b>Voting ended at<b> {}\n".format(proposal.deadlineString())
+        message += "<b>Result<b> {}\n\n".format(proposal.status)
+
     message += "<i>{}<i>\n\n".format(removeMarkdown(proposal.summary))
     message += "<b>Current state percental<b>\n"
     message += "<b>YES<b> {}%\n".format(proposal.percentYesString())
@@ -159,15 +171,44 @@ def proposalDetail(messenger, proposal):
 
     return markdown(message,messenger)
 
+def proposalNew(messenger, proposal, twitter, reddit, gab, discord, telegram):
+
+    def publishedText(state, activated):
+
+        if not activated:
+            return "No account available"
+
+        if state:
+            return "Already published"
+
+        return "Not yet published"
+
+    message = ""
+
+    message += "<u><b> #{} - {}<b><u>\n\n".format(proposal.proposalId, removeMarkdown(proposal.title))
+    message += "<b>Owner<b> {}\n".format(removeMarkdown(proposal.owner))
+    message += "<b>Requested [USD]<b> {:,}\n".format(round(proposal.amountUSD,1))
+    message += "<b>Requested [SMART]<b> {:,} SMART\n\n".format(round(proposal.amountSmart,1))
+    message += "<b>Twitter<b> " + publishedText(proposal.twitter, twitter) + "\n"
+    message += "<b>Reddit<b> " + publishedText(proposal.reddit, reddit) + "\n"
+    message += "<b>Gab<b> " + publishedText(proposal.gab, gab) + "\n"
+    message += "<b>Telegram<b> " + publishedText(proposal.telegram, telegram) + "\n"
+    message += "<b>Discord<b> " + publishedText(proposal.discord, discord) + "\n\n"
+    message += link(messenger, "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url),'Open the proposal!')
+    message += "\n\n"
+
+    return markdown(message,messenger)
+
 def welcome(messenger):
     message =  ":boom: <u><b>Welcome<b><u> :boom:\n\n"
-    message += "You can use me to receive notifications about new/ended proposals or "
-    message += "add the proposals you like and want to follow to your watchlist here. "
+    message += "You can use me to receive notifications about new, shortly ending and completed proposals. "
+    message += "If you are interested in the progress of any proposal you may also want to "
+    message += "add the proposals you want to follow to your watchlist here. "
     message += "This will allow me to send you updates when the voting distribution for any"
     message += " of the proposals on your watchlist obtains a change.\n\n"
-    message += "You are on the subscription list! This means you will receive"
+    message += "I put you on the subscription list! This means you will receive"
     message += " notifications about new/ending proposals from now on. If you dont"
-    message += " like it send me <cb>unsubscribe<ca> to disable it.\n\n"
+    message += " like it send me <cb>unsubscribe<ca> to disable that.\n\n"
     message += "To get more info about all my available commands send me <c>help<c>\n\n"
     message += "If you want to support my creator, its @dustinface#6318 :v:\n\n"
     message += ":coffee: & :beer: => <b>STsDhYJZZrVFCaA5FX2AYWP27noYo3RUjD<b>\n\n\n"
@@ -192,7 +233,17 @@ def publishedProposalNotification(messenger, proposal):
     message += link(messenger, "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url),'Open the proposal!')
     message += "\n\n"
 
-    message += "<u><b>Beee SMART and VOTE!<b><u>\n\n"
+    message += "<u><b>Bee SMART and cast your VOTE!<b><u>\n\n"
+
+    return markdown(message, messenger)
+
+def publishedProposalNotificationAdmin(messenger, proposal):
+
+    message = "<u><b>We have a new proposal<b><u>\n\n"
+
+    message += "<u><b>#{} - {}<b><u>\n\n".format(proposal.proposalId, removeMarkdown(proposal.title))
+    message += "If it matches the requirements send me <cb>publish<ca> {}\n\n".format(proposal.proposalId)
+    message += link(messenger, "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url),'Open the proposal!')
 
     return markdown(message, messenger)
 
@@ -253,6 +304,10 @@ def proposalIsNotOnWatchlist(messenger, title):
 def proposalIdRequired(messenger, command):
     return markdown(("<b>ERROR<b>: The proposal's ID is required as arument. You can see the ID's  with the foregoing #in the proposal list.\n\n"
                      "Example: <cb>{} 200<ca>".format(command)),messenger)
+
+def proposalAlreadyPublished(messenger, id):
+    clean = removeMarkdown(id)
+    return markdown("<b>ERROR<b>: The proposal with the ID - <b>{}<b> - has been already published.".format(clean),messenger)
 
 def invalidProposalId(messenger, id):
     clean = removeMarkdown(id)

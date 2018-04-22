@@ -6,10 +6,9 @@ import sys, argparse, os
 import json
 
 from src import database
-from src import telegram
 from src import discord
 from src import util
-from src.socialmedia import Tweeter, Reddit
+from src.socialmedia import Tweeter, Reddit, Gab
 from src.votingportal import SmartCashProposals
 
 __version__ = "1.0"
@@ -54,12 +53,11 @@ def main(argv):
        sys.exit("Invalid environment.\n 1 - development\n 2 - production\n")
 
     # Enable logging
-
     if environment == 1: # development
-        logging.basicConfig(format='%(asctime)s - scproposals_{} - %(name)s - %(levelname)s - %(message)s'.format(config.get('bot', 'app')),
+        logging.basicConfig(format='%(asctime)s - proposals_{} - %(name)s - %(levelname)s - %(message)s'.format(config.get('bot', 'app')),
                         level=level*10)
     else:# production
-        logging.basicConfig(format='scproposals_{} %(name)s - %(levelname)s - %(message)s'.format(config.get('bot', 'app')),
+        logging.basicConfig(format='proposals_{} %(name)s - %(levelname)s - %(message)s'.format(config.get('bot', 'app')),
                         level=level*10)
 
     notifyChannel = []
@@ -102,11 +100,24 @@ def main(argv):
 
         clientId = config.get('reddit','client_id')
         clientSecret = config.get('reddit','client_secret')
-        password = config.get('reddit','password')
+        userPassword = config.get('reddit','password')
         userAgent = config.get('reddit','user_agent')
         userName = config.get('reddit','user_name')
 
-        reddit = Reddit(clientId, clientSecret, password, userAgent, userName)
+        reddit = Reddit(clientId, clientSecret, userPassword, userAgent, userName)
+
+    except:
+        pass
+
+    # Fallback is None
+    gab = None
+
+    try:
+
+        userName = config.get('gab','user_name')
+        userPassword = config.get('gab','password')
+
+        gab = Gab(userName, userPassword)
 
     except:
         pass
@@ -123,9 +134,9 @@ def main(argv):
     bot = None
 
     if config.get('bot', 'app') == 'telegram':
-        bot = telegram.SmartProposalsBotTelegram(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel)
+        sys.exit("Telegram is not supported yet.")
     elif config.get('bot', 'app') == 'discord':
-        bot = discord.SmartProposalsBotDiscord(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel, tweeter, reddit)
+        bot = discord.SmartProposalsBotDiscord(config.get('bot','token'), admins, password, botdb, proposals, notifyChannel, tweeter, reddit, gab)
     else:
         sys.exit("You need to set 'telegram' or 'discord' as 'app' in the configfile.")
 

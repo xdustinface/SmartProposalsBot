@@ -14,11 +14,13 @@ from src import util
 from src import messages
 from src import commands as commandhandler
 
+from src.socialmedia import PublishResult
+
 logger = logging.getLogger("bot")
 
 class SmartProposalsBotDiscord(object):
 
-    def __init__(self, botToken, admins, password, db, proposals, notifyChannelIds, tweeter, reddit):
+    def __init__(self, botToken, admins, password, db, proposals, notifyChannelIds, tweeter, reddit, gab):
 
         # Currently only used for markdown
         self.messenger = "discord"
@@ -47,6 +49,8 @@ class SmartProposalsBotDiscord(object):
         self.tweeter = tweeter
         # Reddit manager
         self.reddit = reddit
+        # Gab manager
+        self.gab = gab
 
     def runClient(self):
 
@@ -67,6 +71,11 @@ class SmartProposalsBotDiscord(object):
             asyncio.run_coroutine_threadsafe(self.client.close(), loop=loop)
 
             time.sleep(10)
+
+            self.client = discord.Client()
+
+            self.client.on_ready = self.on_ready
+            self.client.on_message = self.on_message
 
     ######
     # Starts the bot and block until the programm gets stopped.
@@ -212,9 +221,9 @@ class SmartProposalsBotDiscord(object):
                     # DM Only
                     'subscribe':1,'unsubscribe':1,'add':1,'remove':1,'watchlist':1,
                     # Public
-                    'help':0,'open':0,'latest':0,'passing':0,'failing':0, 'detail':0,
+                    'help':0,'open':0,'latest':0,'passing':0,'failing':0, 'detail':0,'ending':0,
                     # Admin commands
-                    'stats':2, 'broadcast':2, 'start':2,
+                    'stats':2, 'broadcast':2, 'publish':2, 'new':2,
         }
 
         choices = fuzzy.extract(command,commands.keys(),limit=2)
@@ -252,13 +261,15 @@ class SmartProposalsBotDiscord(object):
                 return
 
             def tryAdmin(message, args):
-
+                logger.info("PW {}".format(self.password))
                 if message.author.id in self.admins:
-
-                    if self.password:
+                    logger.info("yo")
+                    if self.password != None:
+                        logger.info("yo1")
                         if len(args) >= 1 and args[0] == self.password:
                             return True
                     else:
+                        logger.info("yo2")
                         return True
 
                 return False
@@ -295,6 +306,9 @@ class SmartProposalsBotDiscord(object):
         elif command == 'latest':
             response = commandhandler.latest(self)
             await self.sendMessage(receiver, response)
+        elif command == 'ending':
+            response = commandhandler.ending(self)
+            await self.sendMessage(receiver, response)
         elif command == 'detail':
             response = commandhandler.detail(self,args)
             await self.sendMessage(receiver, response)
@@ -304,11 +318,22 @@ class SmartProposalsBotDiscord(object):
         elif command == 'failing':
             response = commandhandler.failing(self)
             await self.sendMessage(receiver, response)
-
         ### Admin command handler ###
         elif command == 'stats':
             response = commandhandler.stats(self)
             await self.sendMessage(receiver, response)
+        elif command == 'new':
+            response = commandhandler.new(self)
+            await self.sendMessage(receiver, response)
+        elif command == 'publish':
+            result = commandhandler.publish(self, message, args)
+
+            if result['fire']:
+                response = self.publishProposal(result['author'], result['proposal'])
+            else:
+                response = result['message']
+            await self.sendMessage(receiver, response)
+
         elif command == 'start':
             response = commandhandler.stats(self)
             await self.sendMessage(receiver, messages.welcome(self.messenger))
@@ -360,6 +385,104 @@ class SmartProposalsBotDiscord(object):
             if channel:
                 asyncio.run_coroutine_threadsafe(self.sendMessage(channel, message), loop=self.client.loop)
 
+    def publishProposal(self, author, proposal):
+
+        ## Socialmedia
+        response = "<u><b>Publish proposal<b><u>\n\n"
+
+        response += "<b>{}<b> triggered the publishing for proposal <b>#{}<b>\n\n".format(author, proposal.proposalId)
+
+        proposalUrl = "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
+
+        response += "<b>Discord<b> "
+
+        if not proposal.discord:
+
+            response += "Success"
+
+            proposal.discord = 1
+
+            responses = commandhandler.handlePublishedProposal(self, proposal)
+
+            message = responses['message']
+
+            for userId in responses['userIds']:
+
+                member = self.findMember(userId)
+
+                if member:
+                    asyncio.run_coroutine_threadsafe(self.sendMessage(member, message), loop=self.client.loop)
+
+            self.notifyChannels(message)
+        else:
+            response += "Alread published!"
+
+        response += "<b>\nTwitter<b> "
+
+        if self.tweeter and not proposal.twitter:
+
+            tweet =  "💥 New Proposal 💥\n\n"
+            tweet += proposal.title + "\n\n"
+            tweet += "\n\n"
+            tweet += proposalUrl
+
+            result = self.tweeter.tweet(tweet)
+
+            if result['status'] != PublishResult.Success:
+                response += str(result['error'])
+            else:
+                response += "Success"
+                proposal.twitter = 1
+
+        elif self.tweeter:
+            response += "Alread published!"
+        else:
+            response += "No twitter account given!"
+
+        response += "\n<b>Reddit<b> "
+
+        if self.reddit and not proposal.reddit:
+
+            title = "💥 New Proposal 💥 - {}".format(proposal.title)
+
+            result = self.reddit.submit("test", title=title,  url=proposalUrl, resubmit=False)
+
+            if result['status'] != PublishResult.Success:
+                response += str(result['error'])
+            else:
+                response += "Success"
+                proposal.reddit = 1
+
+        elif self.reddit:
+            response += "Alread published!"
+        else:
+            response += "No reddit account given!"
+
+        response += "\n<b>Gab.ai<b> "
+
+        if self.gab and not proposal.gab:
+
+            tweet =  "💥 New Proposal 💥\n\n"
+            tweet += proposal.title + "\n\n"
+            tweet += "\n\n"
+            tweet += proposalUrl
+
+            result = self.gab.post(tweet)
+
+            if result['status'] != PublishResult.Success:
+                response += str(result['error'])
+            else:
+                response += "Success"
+                proposal.gab = 1
+
+        elif self.gab:
+            response += "Alread published!"
+        else:
+            response += "No gab account given!"
+
+        self.proposals.db.updateProposal(proposal)
+
+        self.notifyAdmins(messages.markdown(response, self.messenger))
 
     ############################################################
     #                        Callbacks                         #
@@ -374,33 +497,9 @@ class SmartProposalsBotDiscord(object):
     ######
     def proposalPublishedCB(self, proposal):
 
-        responses = commandhandler.handlePublishedProposal(self, proposal)
+        adminResponse = messages.publishedProposalNotificationAdmin(self.messenger, proposal)
 
-        message = responses['message']
-
-        for userId in responses['userIds']:
-
-            member = self.findMember(userId)
-
-            if member:
-                asyncio.run_coroutine_threadsafe(self.sendMessage(member, message), loop=self.client.loop)
-
-        self.notifyChannels(message)
-
-        if self.tweeter:
-
-            tweet =  "💥 New Proposal 💥\n\n"
-            tweet += proposal.title + "\n\n"
-            tweet += "\n\n"
-            tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
-
-            self.tweeter.tweet(tweet)
-
-        # if self.reddit:
-        #
-        #     post =  "💥 New Proposal 💥\n\n"
-        #
-        #     self.reddit.post('/r/smartcash',post)
+        self.notifyAdmins(adminResponse)
 
     def proposalReminderCB(self, proposal):
 
@@ -419,13 +518,16 @@ class SmartProposalsBotDiscord(object):
 
             if self.tweeter:
 
-                tweet =  "❗️ Last call ❗️\n\n"
+                tweet =  "❗️ 24 hours left ❗️\n\n"
                 tweet += proposal.title + "\n\n"
                 tweet += "1 more day till the end! GO cast your votes! "
 
                 tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
 
-                self.tweeter.tweet(tweet)
+            tweetResult = self.tweeter.tweet(tweet)
+
+            if tweetResult['status'] != PublishResult.Success:
+                self.adminCB("**Tweeter error** {}".format(tweetResult['error']))
 
     ######
     # Callback for evaluating if someone in the database has won the reward
@@ -478,7 +580,10 @@ class SmartProposalsBotDiscord(object):
 
             tweet += "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url)
 
-            self.tweeter.tweet(tweet)
+            tweetResult = self.tweeter.tweet(tweet)
+
+            if tweetResult['status'] != PublishResult.Success:
+                self.adminCB("Tweeter error {}".format(tweetResult['error']))
 
 
     def notifyAdmins(self, message):

@@ -136,7 +136,23 @@ def detail(bot,args):
 #
 # Gets only called by bot instance
 ######
+def ending(bot):
+
+    logger.info("ending")
+
+    proposals = bot.proposals.getOpenProposals(remaining=(24 * 3 * 60 * 60))
+
+    return proposalList(bot, proposals, "Passing proposals", "Currently no proposal ready to vote!")
+
+######
+# Command handler for printing the open proposals
+#
+# Command: open
+#
+# Gets only called by bot instance
+######
 def passing(bot):
+
     logger.info("passing")
 
     proposals = bot.proposals.getPassingProposals()
@@ -151,6 +167,7 @@ def passing(bot):
 # Gets only called by bot instance
 ######
 def failing(bot):
+
     logger.info("failing")
 
     proposals = bot.proposals.getFailingProposals()
@@ -164,6 +181,7 @@ def failing(bot):
 # Gets only called by any command handler
 ######
 def subscription(bot, message, state):
+
     logger.info("subscription")
 
     response = "<u><b>Subscription<b><u>\n\n"
@@ -193,6 +211,7 @@ def subscription(bot, message, state):
 # Gets only called by any command handler
 ######
 def add(bot, message, args):
+
     logger.info("add")
 
     response = "<u><b>Add to watchlist<b><u>\n\n"
@@ -244,6 +263,7 @@ def add(bot, message, args):
 # Gets only called by any command handler
 ######
 def remove(bot, message, args):
+
     logger.info("remove")
 
     response = "<u><b>Remove from watchlist<b><u>\n\n"
@@ -296,6 +316,7 @@ def remove(bot, message, args):
 # Gets only called by any command handler
 ######
 def watchlist(bot, message):
+
     logger.info("watchlist")
 
     response = "<u><b>Your watchlist<b><u>\n\n"
@@ -349,6 +370,111 @@ def stats(bot):
 
     return response
 
+######
+# Command handler for admins to publish the new proposals to the connected socialmedia
+#
+# Command: publish
+#
+# Gets only called by bot instance
+######
+def publish(bot, message, args):
+
+    logger.info("publish")
+
+    result = {'fire':False}
+
+    response = "<u><b>Publish proposal<b><u>\n\n"
+
+    userInfo = util.crossMessengerSplit(message)
+    userId = userInfo['user'] if 'user' in userInfo else None
+    userName = userInfo['name'] if 'name' in userInfo else "Unknown"
+
+    result['author'] = userName
+
+    if len(args) != 1:
+        response += messages.proposalIdRequired(bot.messenger, 'publish')
+    elif not util.isInt(args[0].replace('#','')):
+        response += messages.invalidProposalId(bot.messenger, args[0])
+    else:
+
+        proposal = bot.proposals.getProposal(int(args[0].replace('#','')))
+
+        if not proposal:
+            response += messages.proposalNotFound(bot.messenger, args[0])
+        else:
+
+            result['proposal'] = proposal
+
+            twitter = bot.tweeter != None
+            reddit = bot.reddit != None
+            gab = bot.gab != None
+            discord = False
+            telegram = False
+
+            if 'discord' in bot.messenger:
+                discord = True
+
+            if 'telegram' in bot.messenger:
+                telegram = True
+
+            if proposal.published(twitter = twitter,
+                                  reddit = reddit,
+                                  gab = gab,
+                                  discord = discord,
+                                  telegram = telegram):
+                response += messages.proposalAlreadyPublished(bot.messenger, args[0])
+            else:
+                result['fire'] = True
+
+    result['message'] = messages.markdown(response, bot.messenger)
+
+    return result
+
+######
+# Command handler for printing stats about the bot
+#
+# Command: /stats
+#
+# Gets only called by bot instance
+######
+def new(bot):
+
+    logger.info("new")
+
+    twitter = bot.tweeter != None
+    reddit = bot.reddit != None
+    gab = bot.gab != None
+    discord = False
+    telegram = False
+
+    if 'discord' in bot.messenger:
+        discord = True
+
+    if 'telegram' in bot.messenger:
+        telegram = True
+
+    proposals = bot.proposals.getNotPublishedProposals(twitter = twitter,
+                                                       reddit = reddit,
+                                                       gab = gab,
+                                                       discord = discord,
+                                                       telegram = telegram)
+
+    response = "<u><b>Unpublished proposals<b><u>\n\n"
+
+    if len(proposals):
+
+        for proposal in proposals:
+            response += messages.proposalNew(bot.messenger, proposal,
+                                                            twitter = twitter,
+                                                            reddit = reddit,
+                                                            gab = gab,
+                                                            discord = discord,
+                                                            telegram = telegram)
+    else:
+        response += "Currently no proposal ready to publish!"
+
+    return messages.markdown(response, bot.messenger)
+
 def handlePublishedProposal(bot, proposal):
 
     # Create notification response messages!
@@ -372,7 +498,6 @@ def handleReminderProposal(bot, proposal):
 def handleUpdatedProposal(bot, updated, proposal):
 
     # Create notification response messages!
-
     responses = {}
     changes = []
 

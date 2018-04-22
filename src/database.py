@@ -242,8 +242,12 @@ class ProposalDatabase(object):
                         currentStatus,\
                         categoryTitle,\
                         approval,\
-                        reminder) \
-                        values( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )"
+                        reminder,\
+                        twitter,\
+                        reddit,\
+                        gab,\
+                        discord) \
+                        values( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,0,0 )"
 
                 db.cursor.execute(query, (
                                   proposal.proposalId,
@@ -303,7 +307,11 @@ class ProposalDatabase(object):
                         currentStatus=?,\
                         categoryTitle=?, \
                         approval=?,\
-                        reminder=? \
+                        reminder=?,\
+                        twitter=?,\
+                        reddit=?,\
+                        gab=?,\
+                        discord=? \
                         WHERE proposalId=?"
 
                 db.cursor.execute(query, (
@@ -328,6 +336,10 @@ class ProposalDatabase(object):
                                   proposal.categoryTitle,
                                   proposal.approval,
                                   proposal.reminder,
+                                  proposal.twitter,
+                                  proposal.reddit,
+                                  proposal.gab,
+                                  proposal.discord,
                                   proposal.proposalId
                                   ))
 
@@ -384,8 +396,12 @@ class ProposalDatabase(object):
             `percentAbstain` REAL,\
             `currentStatus` TEXT,\
             `categoryTitle` TEXT,\
+            `approval` INTEGER,\
             `reminder` INTEGER,\
-            `approval` INTEGER\
+            `twitter` INTEGER,\
+            `reddit` INTEGER,\
+            `gab` INTEGER,\
+            `discord` INTEGER\
         );\
         COMMIT;'
 

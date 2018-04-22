@@ -37,3 +37,20 @@ notification_channels =
 admins =
 # Admin password to run admin commands
 password =
+
+[twitter]
+consumer_key=
+consumer_secret=
+access_token_key=
+access_token_secret=
+
+[reddit]
+client_id=
+client_secret=
+password=8OUYMQC1!x
+user_agent=
+user_name=
+
+[gab]
+user_name=
+password=

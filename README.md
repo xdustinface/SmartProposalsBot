@@ -1,7 +1,7 @@
 # SmartProposalsBot
 
-This bot will allow you to:
- - Subscribe for notifications about new/ending proposals on the voting portal: https://vote.smartcash.cc/
+This bot allows you to:
+ - Subscribe for notifications about new/ending/ended proposals on the voting portal: https://vote.smartcash.cc/
  - Add proposals to your watchlist and receive notifications when their voting state changed
  - Check the open proposals
  - Read the summary of specific proposals
@@ -9,20 +9,21 @@ This bot will allow you to:
 
 Commands (DM + Public)
 
-help - Print this help.
-open - Print a list of all proposals that are open to vote.
-latest - Print the last recent proposal.
-passing - Print the open proposals with currently more YES votes.
-failing - Print the open proposals with currently more NO votes.
-detail :id - Print the summary of a specific proposal. Replace :id with the proposal id! Example: detail #202
+help - Display this help message.
+open - Display a list of all proposals that are open to vote.
+latest - Display the last recent proposal.
+ending - Display all open proposals ending in less than 3 days.
+passing - Display all open proposals with currently more YES votes.
+failing - Display all open proposals with currently more NO votes.
+detail :id - Display the details of a specific proposal. Replace :id with the proposal id! Example: detail 202
 
 Command (DM only)
 
 subscribe - Subscribe notifications about new/ended proposals.
 unsubscribe - Unsubscribe the notifications about new/ended proposals.
-add :id - Add a proposal to your watchlist. Replace :id with the proposal id! Example: add #202
-remove :id - Remove a proposal from your watchlist. Replace :id with the proposal id Example: remove #202
-watchlist - Print all proposals on your watchlist
+add :id - Add a proposal to your watchlist. Replace :id with the proposal id! Example: add 202
+remove :id - Remove a proposal from your watchlist. Replace :id with the proposal id Example: remove 202
+watchlist - Display all proposals on your watchlist
 
 
 # Beer, coffee and further development

@@ -17,9 +17,10 @@ from src import util
 stateOpen = 'open'
 stateAllocated = 'allocated'
 stateCompleted = 'completed'
+stateNotFunded = "not funded"
 stateDeactivated = 'deactivated'
 
-validProposalStates = [stateOpen, stateAllocated, stateCompleted, stateDeactivated]
+validProposalStates = [stateOpen, stateAllocated, stateCompleted, stateNotFunded, stateDeactivated]
 
 log = logging.getLogger("voting")
 
@@ -82,7 +83,7 @@ class Proposal(object):
                     'voteYes','voteNo','voteAbstain','percentYes',
                     'percentNo','percentAbstain','currentStatus','categoryTitle']
 
-        optional = ['reminder', 'approval']
+        optional = ['reminder', 'approval', 'twitter', 'reddit', 'gab', 'discord', 'telegram']
 
         for key in required:
             if not key in rawDict:
@@ -163,6 +164,25 @@ class Proposal(object):
 
     def failing(self):
         return stateOpen in self.status.lower() and 'no' in self.currentStatus.lower()
+
+    def published(self, twitter = False, reddit = False, gab = False, discord = False, telegram = False):
+
+        if twitter and not self.twitter:
+            return False
+
+        if reddit and not self.reddit:
+            return False
+
+        if gab and not self.gab:
+            return False
+
+        if discord and not self.discord:
+            return False
+
+        if telegram and not self.telegram:
+            return False
+
+        return True
 
 class SmartCashProposals(object):
 
@@ -333,16 +353,14 @@ class SmartCashProposals(object):
                 else:
                     openProposals[proposal.proposalId] = proposal
 
-
             for id in self.proposals:
 
                 proposal = self.proposals[id]
 
                 if not id in openProposals:
-                    log.info("Proposal ended!")
 
                     if not proposal.open():
-                        log.info("Ended but was not open?!")
+                        log.debug("Ended but was not open?!")
                         continue
 
                     try:
@@ -350,13 +368,28 @@ class SmartCashProposals(object):
                     except Exception as e:
                         self.error("Could not load proposal {}".format(proposal.proposalId),e)
                     else:
+                        updated = {
+                                    'voteYes' : None,
+                                    'voteNo' : None,
+                                    'voteAbstain' : None,
+                                    'status' : None,
+                                    'currentStatus' : None
+                                  }
 
-                        self.proposals[id] = detailed
+                        for key in updated:
+
+                            before = proposal.__getattribute__(key)
+                            after = detailed.__getattribute__(key)
+                            if before != after:
+
+                                log.info("#{} - update {}: B: {} A: {}".format(id, key, before, after))
+                                updated[key] = {'before':before, 'now': after}
+                                proposal.__setattr__(key,after)
 
                         if self.proposalEndedCB:
-                            self.proposalEndedCB(detailed)
+                            self.proposalEndedCB(proposal)
 
-                        self.db.updateProposal(detailed)
+                        self.db.updateProposal(proposal)
 
                 else:
 
@@ -378,28 +411,36 @@ class SmartCashProposals(object):
                               }
 
                     compare = Proposal.fromRaw(dbProposal)
+                    open = openProposals[id]
 
                     for key in updated:
-                        if compare.__getattribute__(key) != proposal.__getattribute__(key):
-                            updated[key] = {'before':compare.__getattribute__(key), 'now': proposal.__getattribute__(key)}
+
+                        before = compare.__getattribute__(key)
+                        after = open.__getattribute__(key)
+                        if before != after:
+
+                            log.info("#{} - update {}: B: {} A: {}".format(id, key, before, after))
+                            updated[key] = {'before':before, 'now': after}
+                            compare.__setattr__(key,after)
 
                     if sum(map(lambda x: x != None,list(updated.values()))):
                         log.info("Proposal updated!")
 
                         if self.proposalUpdatedCB:
-                            self.db.updateProposal(proposal)
-                            self.proposalUpdatedCB(updated, proposal)
+                            self.proposalUpdatedCB(updated, compare)
 
-                    remainingSeconds = proposal.remainingSeconds()
+                        self.db.updateProposal(compare)
 
-                    if not proposal.reminder and remainingSeconds and\
-                        remainingSeconds < (24 * 60 * 60): # Remind 24hours before the end
+                    remainingSeconds = compare.remainingSeconds()
 
-                        proposal.reminder = 1
-                        self.db.updateProposal(proposal)
+                    if not compare.reminder and remainingSeconds and\
+                        remainingSeconds < (48 * 60 * 60): # Remind 24hours before the end
+
+                        compare.reminder = 1
+                        self.db.updateProposal(compare)
 
                         if self.proposalReminderCB:
-                            self.proposalReminderCB(proposal)
+                            self.proposalReminderCB(compare)
 
             for id, proposal in openProposals.items():
                 if not self.db.getProposal(id):
@@ -413,8 +454,14 @@ class SmartCashProposals(object):
                     if self.proposalPublishedCB:
                         self.proposalPublishedCB(proposal)
 
-    def getOpenProposals(self):
-        return sorted(filter(lambda x: x.open(), self.proposals.values()))
+    def getOpenProposals(self, remaining = None):
+
+        if remaining:
+            result = sorted(filter(lambda x: x.open() and x.remainingSeconds() < remaining, self.proposals.values()))
+        else:
+            result = sorted(filter(lambda x: x.open(), self.proposals.values()))
+
+        return result
 
     def getProposal(self, proposalId):
 
@@ -445,3 +492,10 @@ class SmartCashProposals(object):
 
     def getFailingProposals(self):
         return sorted(filter(lambda x: x.failing(),self.proposals.values()))
+
+    def getNotPublishedProposals(self, twitter=False, reddit=False, gab=False, discord=False, telegram=False):
+        return sorted(filter(lambda x: not x.published(twitter = twitter,\
+                                                       reddit=reddit,\
+                                                       gab=gab,\
+                                                       discord=discord,\
+                                                       telegram=telegram),self.proposals.values()))
