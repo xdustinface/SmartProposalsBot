@@ -368,6 +368,7 @@ class SmartCashProposals(object):
                     except Exception as e:
                         self.error("Could not load proposal {}".format(proposal.proposalId),e)
                     else:
+
                         updated = {
                                     'voteYes' : None,
                                     'voteNo' : None,
@@ -391,6 +392,8 @@ class SmartCashProposals(object):
 
                         self.db.updateProposal(proposal)
 
+                        self.proposals[id] = proposal
+
                 else:
 
                     dbProposal = self.db.getProposal(proposal.proposalId)
@@ -402,7 +405,7 @@ class SmartCashProposals(object):
                     # Compare metrics!
                     log.info("Compare {}".format(proposal.title))
 
-                    updated = {
+                    updateNotify = {
                                 'voteYes' : None,
                                 'voteNo' : None,
                                 'voteAbstain' : None,
@@ -410,24 +413,36 @@ class SmartCashProposals(object):
                                 'currentStatus' : None
                               }
 
+                    updateOnly = ['percentYes','percentNo', 'percentAbstain', 'amountSmart', 'amountUSD']
+
                     compare = Proposal.fromRaw(dbProposal)
                     open = openProposals[id]
 
-                    for key in updated:
+                    for key in updateNotify:
 
                         before = compare.__getattribute__(key)
                         after = open.__getattribute__(key)
+
                         if before != after:
 
-                            log.info("#{} - update {}: B: {} A: {}".format(id, key, before, after))
-                            updated[key] = {'before':before, 'now': after}
+                            log.info("#{} - update notify {}: B: {} A: {}".format(id, key, before, after))
+                            updateNotify[key] = {'before':before, 'now': after}
                             compare.__setattr__(key,after)
 
-                    if sum(map(lambda x: x != None,list(updated.values()))):
+                    for key in updateOnly:
+
+                        before = compare.__getattribute__(key)
+                        after = open.__getattribute__(key)
+
+                        if before != after:
+                            log.info("#{} - update only {}: B: {} A: {}".format(id, key, before, after))
+                            compare.__setattr__(key,after)
+
+                    if sum(map(lambda x: x != None,list(updateNotify.values()))):
                         log.info("Proposal updated!")
 
                         if self.proposalUpdatedCB:
-                            self.proposalUpdatedCB(updated, compare)
+                            self.proposalUpdatedCB(updateNotify, compare)
 
                         self.db.updateProposal(compare)
 
@@ -441,6 +456,9 @@ class SmartCashProposals(object):
 
                         if self.proposalReminderCB:
                             self.proposalReminderCB(compare)
+
+                    self.proposals[id] = compare
+
 
             for id, proposal in openProposals.items():
                 if not self.db.getProposal(id):
