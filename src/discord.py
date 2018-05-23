@@ -37,6 +37,7 @@ class SmartProposalsBotDiscord(object):
         self.proposals.proposalPublishedCB = self.proposalPublishedCB
         self.proposals.proposalUpdatedCB = self.proposalUpdatedCB
         self.proposals.proposalReminderCB = self.proposalReminderCB
+        self.proposals.proposalExtendedCB = self.proposalExtendedCB
         self.proposals.proposalEndedCB = self.proposalEndedCB
         self.proposals.errorCB = self.adminCB
         # Store the admin password
@@ -535,6 +536,22 @@ class SmartProposalsBotDiscord(object):
 
             if tweetResult['status'] != PublishResult.Success:
                 self.adminCB("**Tweeter error** {}".format(tweetResult['error']))
+
+    def proposalExtendedCB(self, proposal):
+
+            responses = commandhandler.handleExtendedProposal(self, proposal)
+
+            message = responses['message']
+
+            for userId in responses['userIds']:
+
+                member = self.findMember(userId)
+
+                if member:
+                    asyncio.run_coroutine_threadsafe(self.sendMessage(member, message), loop=self.client.loop)
+
+            self.notifyChannels(message)
+
 
     ######
     # Callback for evaluating if someone in the database has won the reward

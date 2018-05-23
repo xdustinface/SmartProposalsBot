@@ -142,7 +142,7 @@ def ending(bot):
 
     proposals = bot.proposals.getOpenProposals(remaining=(24 * 3 * 60 * 60))
 
-    return proposalList(bot, proposals, "Passing proposals", "Currently no proposal ready to vote!")
+    return proposalList(bot, proposals, "Ending proposals", "Currently no proposal ready to vote!")
 
 ######
 # Command handler for printing the open proposals
@@ -479,6 +479,16 @@ def handlePublishedProposal(bot, proposal):
 
     # Create notification response messages!
     responses = {'message':messages.publishedProposalNotification(bot.messenger, proposal), 'userIds': []}
+
+    for user in bot.database.getSubscriptions():
+        responses['userIds'].append(user['id'])
+
+    return responses
+
+def handleExtendedProposal(bot, proposal):
+
+    # Create notification response messages!
+    responses = {'message':messages.extendedProposalNotification(bot.messenger, proposal), 'userIds': []}
 
     for user in bot.database.getSubscriptions():
         responses['userIds'].append(user['id'])

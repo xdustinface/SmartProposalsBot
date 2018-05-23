@@ -258,6 +258,17 @@ def reminderProposalNotification(messenger, proposal):
 
     return markdown(message, messenger)
 
+def extendedProposalNotification(messenger, proposal):
+
+    message = "<u><b>:exclamation: Proposal deadline extended :exclamation:<b><u>\n\n"
+
+    message += "<b>#{} - {}<b>\n\n".format(proposal.proposalId, removeMarkdown(proposal.title))
+    message += "<b>New remaining time<b> {}\n\n".format(proposal.remainingString())
+    message += link(messenger, "https://vote.smartcash.cc/Proposal/Details/{}".format(proposal.url),'Open the proposal!')
+    message += "\n\n"
+
+    return markdown(message, messenger)
+
 def endedProposalNotification(messenger, proposal):
 
     message = "<u><b>Proposal ended!<b><u>\n\n"

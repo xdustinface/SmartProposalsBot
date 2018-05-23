@@ -410,7 +410,8 @@ class SmartCashProposals(object):
                                 'voteNo' : None,
                                 'voteAbstain' : None,
                                 'status' : None,
-                                'currentStatus' : None
+                                'currentStatus' : None,
+                                'votingDeadline' : None,
                               }
 
                     updateOnly = ['percentYes','percentNo', 'percentAbstain', 'amountSmart', 'amountUSD']
@@ -444,19 +445,24 @@ class SmartCashProposals(object):
                         if self.proposalUpdatedCB:
                             self.proposalUpdatedCB(updateNotify, compare)
 
-                    remainingSeconds = compare.remainingSeconds()
+                    if updateNotify['votingDeadline']:
 
-                    if not compare.reminder and remainingSeconds and\
-                        remainingSeconds < (48 * 60 * 60): # Remind 24hours before the end
+                        if self.proposalExtendedCB:
+                            self.proposalExtendedCB(compare)
+                    else:
 
-                        compare.reminder = 1
+                        remainingSeconds = compare.remainingSeconds()
 
-                        if self.proposalReminderCB:
-                            self.proposalReminderCB(compare)
+                        if not compare.reminder and remainingSeconds and\
+                            remainingSeconds < (24 * 60 * 60): # Remind 24hours before the end
+
+                            compare.reminder = 1
+
+                            if self.proposalReminderCB:
+                                self.proposalReminderCB(compare)
 
                     self.proposals[id] = compare
                     self.db.updateProposal(compare)
-
 
             for id, proposal in openProposals.items():
                 if not self.db.getProposal(id):
